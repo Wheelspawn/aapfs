@@ -12,17 +12,20 @@ import numpy as np
 
 
 class PhysicalMesh():
-    def __init__(self, vertices = np.array([[0,0,0]]), pos=np.array([0,0,0])):
+    def __init__(self, name, vertices = np.array([[0,0,0]]), pos=np.array([0,0,0])):
+        self.name = name
         self.vertices = vertices
         self.pos = pos
 
 class Particle(PhysicalMesh):
-    def __init__(self, vertices = np.array([[0,0,0]]), pos=np.array([0,0,0])):
+    def __init__(self, name, vertices = np.array([[0,0,0]]), pos=np.array([0,0,0])):
+        self.name = name
         self.vertices = vertices
         self.pos = pos
         
 class Circle(PhysicalMesh):
-    def __init__(self, pos=np.array([0,0,0]), radius=1):
+    def __init__(self, name, pos=np.array([0,0,0]), radius=1):
+        self.name = name
         self.pos = pos
         self.radius = radius
         self.vertices = np.array([[np.cos(math.radians(x*10))*self.radius*0.5,
@@ -35,10 +38,10 @@ def collides(a: Circle, b: Circle):
 
 
 
-def integrate():
+def integrate(list[PhysicalMesh] meshes):
     pass
 
-a = Circle(pos=np.array([1,1,0]),radius=1)
-b = Circle(pos=np.array([2,1,0]),radius=0.9)
+a = Circle(pos=np.array([1,1,0]),radius=0.5)
+b = Circle(pos=np.array([2,1,0]),radius=0.51)
 
 
