@@ -1,0 +1,9 @@
+spyder
+numpy
+scipy
+pandas
+matplotlib
+sympy
+cython
+PyQt5
+vispy
