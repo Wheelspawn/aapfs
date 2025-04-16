@@ -3,6 +3,8 @@ import json
 import numpy as np
 from PyQt5 import QtWidgets, QtCore
 from vispy import scene
+import typing
+import copy
 
 class Particle:
     def __init__(self, timesteps=0, start_pos=np.zeros(3)):
@@ -52,27 +54,46 @@ def collides(a1, b1, a2, b2):
 class Universe:
     """Handles loading and storing universe configuration from a JSON file."""
     def __init__(self):
-        self.camera_position = [0, 0, 0]
-        self.max_timestep = 50
-        self.gravity_const = 0.0
-        self.friction_coeff = 0.15
+        self.setup = { "camera_position": [0, 0, 0], "timesteps": 50 }
         self.objects = []
-        self.data = {}
-        self.solved_data = {}
+        self.forces = []
+        self.solved_data = []
         self.solved = False
 
-    def load_from_file(self, filepath):
+    def load_universe_file(self, filepath):
         try:
             with open(filepath, 'r') as f:
-                self.data = json.load(f)
+                data = json.load(f)
+                self.setup = data["setup"]
+                self.objects = data["objects"]
+                self.forces = data["forces"]
+                
+                for obj in self.objects:
+                    obj["position"]["value"] = np.array(obj["position"]["value"])
+                    obj["velocity"]["value"] = np.array(obj["velocity"]["value"])
+                for force in self.forces:
+                    force["position"]["value"] = np.array(force["position"]["value"])
+                    
         except Exception as e:
             raise Exception(f"Error reading JSON: {e}")
-        
-        self.max_timestep = self.data["global"]["max_timestep"]
-        self.gravity = self.data["global"]["gravity"]
-        self.friction_coeff = self.data["global"]["friction_coeff"]
-        self.objects = self.data["objects"]
     
+    def solve_system(self):
+        
+        setup = self.setup
+        objects = self.objects
+        forces = self.forces
+        self.solved_data.append({"objects":objects, "forces":forces})
+        
+        for t in range(self.setup["timesteps"]):
+            setup, objects, forces = solve(setup, objects, forces)
+            self.solved_data.append({"objects":objects, "forces":forces})
+        
+        print(self.solved_data)
+        
+        self.solved = True
+            
+        
+    '''
     def solve(self):
         
         if self.solved:
@@ -82,8 +103,8 @@ class Universe:
         
         for obj in self.data["objects"]:
             obj_uname = obj["unique_name"]
-            positions[obj_uname] = [np.array(obj["location"]["value"]),
-                                      np.array(obj["location"]["value"])]
+            positions[obj_uname] = [np.array(obj["position"]["value"]),
+                                      np.array(obj["position"]["value"])]
         
         for t in range(1,self.max_timestep):
             
@@ -123,7 +144,20 @@ class Universe:
         self.solved = True
         
         print("Solved.")
+        '''
 
+def solve(setup: dict, objects: list[dict], forces: list[dict]) -> tuple[dict, list[dict], list[dict]]:
+    
+    new_objects = []
+    
+    for object_t in objects:
+        object_t1 = copy.deepcopy(object_t)
+        object_t1["position"]["value"] += object_t["velocity"]["value"]
+        new_objects.append(object_t1)
+    
+    return (setup, new_objects, forces)
+        
+    
 # --- Universe Scene (VisPy Viewport) ---
 class UniverseScene:
     """Encapsulates the VisPy scene elements including the 3D viewport, axes, grid, and objects."""
@@ -174,26 +208,28 @@ class UniverseScene:
         self.view.camera.distance = 30
         self.view.camera.azimuth = 0
         self.view.camera.elevation = 0
-
+        
     def update_objects(self, objects):
         """Updates the markers in the scene based on a list of objects."""
         positions = []
         for obj in objects:
-            loc = obj.get("location", {}).get("value", [0, 0, 0])
+            loc = obj["position"]["value"]
             positions.append(loc)
         if positions:
             positions = np.array(positions)
             self.markers.set_data(positions, face_color='red', size=10)
 
-    def update_objects_to_timestep(self, objects, timestep):
+    def update_objects_to_timestep(self, universe, current_timestep):
         """Updates the markers in the scene based on a list of objects."""
+        print(universe.solved_data[current_timestep]["objects"])
         positions = []
-        for obj in objects:
-            loc = objects[obj][timestep]
+        for obj in universe.solved_data[current_timestep]["objects"]:
+            loc = obj["position"]["value"]
             positions.append(loc)
+        print(positions)
+        print()
         if positions:
             positions = np.array(positions)
-            print(positions)
             self.markers.set_data(positions, face_color='red', size=10)
             
     def toggle_axes(self):
@@ -253,7 +289,7 @@ class PhysicsEngineGUI(QtWidgets.QMainWindow):
         btn_layout.addWidget(self.hide_grid_btn)
 
         self.solve_btn = QtWidgets.QPushButton("Solve")
-        self.solve_btn.clicked.connect(self.universe.solve)
+        self.solve_btn.clicked.connect(self.universe.solve_system)
         btn_layout.addWidget(self.solve_btn)
         left_layout.addLayout(btn_layout)
 
@@ -261,7 +297,7 @@ class PhysicsEngineGUI(QtWidgets.QMainWindow):
         timestep_layout = QtWidgets.QHBoxLayout()
         self.timestep_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         self.timestep_slider.setMinimum(0)
-        self.timestep_slider.setMaximum(self.universe.max_timestep)
+        self.timestep_slider.setMaximum(self.universe.setup["timesteps"])
         self.timestep_slider.setValue(0)
         self.timestep_slider.valueChanged.connect(self.timestep_changed)
         timestep_layout.addWidget(self.timestep_slider)
@@ -308,10 +344,10 @@ class PhysicsEngineGUI(QtWidgets.QMainWindow):
         )
         if file_name:
             try:
-                self.universe.load_from_file(file_name)
-                self.universe_scene.set_camera_position(self.universe.camera_position)
+                self.universe.load_universe_file(file_name)
+                self.universe_scene.set_camera_position(self.universe.setup["camera_position"])
                 self.universe_scene.update_objects(self.universe.objects)
-                self.timestep_slider.setMaximum(self.universe.max_timestep)
+                self.timestep_slider.setMaximum(self.universe.setup["timesteps"])
                 self.current_timestep = 0
                 self.timestep_slider.setValue(0)
                 self.timestep_label.setText("Timestep: 0")
@@ -353,7 +389,7 @@ class PhysicsEngineGUI(QtWidgets.QMainWindow):
 
     def update_timestep(self):
         """Advances the timestep at a rate of 10 steps per second until max timestep is reached."""
-        if self.current_timestep < self.universe.max_timestep:
+        if self.current_timestep < self.universe.setup["timesteps"]:
             self.current_timestep += 1
             self.timestep_slider.setValue(self.current_timestep)
         else:
@@ -368,7 +404,7 @@ class PhysicsEngineGUI(QtWidgets.QMainWindow):
         # print(value)
         
         if self.universe.solved:
-            self.universe_scene.update_objects_to_timestep(self.universe.solved_data, value)
+            self.universe_scene.update_objects_to_timestep(self.universe, self.current_timestep)
 
     def populate_side_panel(self):
         """Populates the side panel with a tree view of the universe objects and their properties."""
@@ -380,17 +416,17 @@ class PhysicsEngineGUI(QtWidgets.QMainWindow):
             top_item = QtWidgets.QTreeWidgetItem(self.side_panel, [f"Object {i + 1}", "", ""])
             # Add details as children
             unique_name = obj.get("unique_name", {})
-            location = obj.get("location", {})
+            position = obj.get("position", {})
             mass = obj.get("mass", {})
             forces = obj.get("forces", {})
             
-            loc_value = location.get("value", [])
-            loc_unit = location.get("unit", "")
+            loc_value = position.get("value", [])
+            loc_unit = position.get("unit", "")
             
             mass_value = mass.get("value", "")
             mass_unit = mass.get("unit", "")
             
-            loc_item = QtWidgets.QTreeWidgetItem(top_item, ["Location", "", f"{loc_value} {loc_unit}"])
+            loc_item = QtWidgets.QTreeWidgetItem(top_item, ["Position", "", f"{loc_value} {loc_unit}"])
             mass_item = QtWidgets.QTreeWidgetItem(top_item, ["Mass", "", f"{mass_value} {mass_unit}"])
             
             top_item.addChild(loc_item)

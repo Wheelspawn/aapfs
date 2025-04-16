@@ -1,50 +1,31 @@
 {
-  "global": {
+  "setup": {
     "camera_position": [0, 0, 0],
-    "max_timestep": 5,
-    "gravity": 0.0,
-    "friction_coeff": 0.15
+    "timesteps": 5
   },
   "objects": [
     {
       "unique_name": "particle1",
-      "type": "particle",
-      "color": "red",
-      "location": {
-        "value": [0.0, 1.0, 0.0],
-        "unit": "meter"
+      "position": {
+        "value": [-2.0, 0.0, 0.0],
+        "unit": "m"
       },
-      "mass": {
-        "value": 1.0,
-        "unit": "kilogram"
+      "velocity": {
+        "value": [1.0, 0.0, 0.0],
+        "unit": "m"
       }
     },
     {
       "unique_name": "particle2",
-      "type": "particle",
-      "color": "blue",
-      "location": {
-        "value": [1.0, 0.0, 0.0],
-        "unit": "meter"
+      "position": {
+        "value": [0.0, -2.0, 0.0],
+        "unit": "m/s"
       },
-      "mass": {
-        "value": 1.0,
-        "unit": "kilogram"
+      "velocity": {
+        "value": [0.0, 1.0, 0.0],
+        "unit": "m/s"
       }
     }
   ],
-  "forces": [
-    {
-      "unique_name": "particle1",
-      "value": [1.0, 0.0, 0.0],
-      "unit": "newton",
-      "timestep": 1
-    },
-    {
-      "unique_name": "particle2",
-      "value": [0.0, 1.0, 0.0],
-      "unit": "newton",
-      "timestep": 1
-    }
-  ]
+  "forces": []
 }
