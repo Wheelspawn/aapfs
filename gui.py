@@ -6,6 +6,8 @@ from vispy import scene
 import typing
 import copy
 
+from integrate import *
+
 class Particle:
     def __init__(self, timesteps=0, start_pos=np.zeros(3)):
         self.timestep = 0
@@ -54,7 +56,7 @@ def collides(a1, b1, a2, b2):
 class Universe:
     """Handles loading and storing universe configuration from a JSON file."""
     def __init__(self):
-        self.setup = { "camera_position": [0, 0, 0], "timesteps": 50 }
+        self.setup = { "camera_position": [0, 0, 0], "timesteps": 250 }
         self.objects = []
         self.forces = []
         self.solved_data = []
@@ -79,6 +81,23 @@ class Universe:
     
     def solve_system(self):
         
+        i = Circle(name="circle1",pos=np.array([-0.9,0.8,0]),lin_vel=np.array([0.5,-0.25,0.0]),radius=0.5)
+        j = Circle(name="circle2",pos=np.array([1.2,-0.8,0]),lin_vel=np.array([0.0,0.15,0.0]),radius=0.5,mass=0.3)
+        k = Circle(name="circle3",pos=np.array([4.2,-2.6,0]),lin_vel=np.array([0.0,0.0,0.0]),radius=0.5)
+        l = Circle(name="circle4",pos=np.array([1.5,2.0,0]),lin_vel=np.array([0.0,0.0,0.0]),radius=0.25,mass=0.1)
+        
+        self.solved_data.append([i,j,k,l])
+        for t in range(self.setup["timesteps"]):
+            integrate([i,j,k,l])
+            i = copy.deepcopy(i)
+            j = copy.deepcopy(j)
+            k = copy.deepcopy(k)
+            l = copy.deepcopy(l)
+            self.solved_data.append([i,j,k,l])
+        
+        # print(self.solved_data)
+        
+        '''
         setup = self.setup
         objects = self.objects
         forces = self.forces
@@ -88,7 +107,7 @@ class Universe:
             setup, objects, forces = solve(setup, objects, forces)
             self.solved_data.append({"objects":objects, "forces":forces})
         
-        print(self.solved_data)
+        print(self.solved_data)'''
         
         self.solved = True
             
@@ -176,6 +195,24 @@ class UniverseScene:
 
         # Create markers to represent physical objects (particles/small spheres)
         self.markers = scene.visuals.Markers(parent=self.view.scene)
+        # self.circles = scene.visuals.Ellipse(parent=self.view.scene)
+        
+        self.solved_meshes = []
+        self.solved_text = []
+        
+        '''
+        self.circles = scene.visuals.Ellipse(parent=self.view.scene,
+                                            color="blue",
+                                            border_color="black",
+                                            border_width=4.0,
+                                            center=(0.5,0.5),
+                                            radius=0.5)
+        
+        self.text = scene.visuals.Text(parent=self.view.scene,
+                                       text="1",
+                                       color="white",
+                                       font_size=500,
+                                       pos=(0.5,0.5))'''
         
     def _create_grid(self):
         """Creates a simple grid on the XY plane."""
@@ -218,19 +255,63 @@ class UniverseScene:
         if positions:
             positions = np.array(positions)
             self.markers.set_data(positions, face_color='red', size=10)
-
+    
     def update_objects_to_timestep(self, universe, current_timestep):
         """Updates the markers in the scene based on a list of objects."""
-        print(universe.solved_data[current_timestep]["objects"])
-        positions = []
+    
+        if self.solved_meshes == []:
+        
+            for mesh in universe.solved_data[0]:
+                self.solved_meshes.append(scene.visuals.Ellipse(parent=self.view.scene,
+                                                                color="white",
+                                                                border_color="black",
+                                                                border_width=3.0,
+                                                                center=mesh.pos,
+                                                                radius=mesh.radius))
+                
+                self.solved_text.append(scene.visuals.Text(parent=self.view.scene,
+                                                           text="+",
+                                                           color="black",
+                                                           font_size=500,
+                                                           pos=mesh.pos,
+                                                           rotation=mesh.angle*(180/np.pi)))
+                
+        else:
+            for m in range(len(universe.solved_data[current_timestep])):
+                self.solved_meshes[m].center = universe.solved_data[current_timestep][m].pos
+                self.solved_text[m].pos = universe.solved_data[current_timestep][m].pos
+                self.solved_text[m].rotation = universe.solved_data[current_timestep][m].angle*(180/np.pi)
+                print("computed: ", universe.solved_data[current_timestep][m].angle)
+                print("label: ", self.solved_text[m].rotation)
+                print()
+        
+        
+        # [for mesh in universe.solved_data[current_timestep]]:
+            
+        '''
+        particle_pos = []
+        particle_colors = []
+        
+        circle_pos = []
+        circle_colors = []
+        
         for obj in universe.solved_data[current_timestep]["objects"]:
+            
             loc = obj["position"]["value"]
-            positions.append(loc)
-        print(positions)
-        print()
-        if positions:
-            positions = np.array(positions)
-            self.markers.set_data(positions, face_color='red', size=10)
+            color = obj["color"]
+            
+            if obj["type"] == "particle":
+                particle_pos.append(loc)
+                particle_colors.append(color)
+                
+            elif obj["type"] == "circle":
+                circle_pos.append(loc)
+                circle_colors.append(color)
+        
+        self.markers.set_data(pos=np.array(particle_pos), face_color=np.array(particle_colors), size=10)
+        self.circles.set_data(pos=np.array(circle_pos), face_color=np.array(circle_colors), size=10)
+        '''
+        
             
     def toggle_axes(self):
         """Toggles the visibility of the axes."""
@@ -329,7 +410,7 @@ class PhysicsEngineGUI(QtWidgets.QMainWindow):
     def _init_timer(self):
         """Initializes the timer for advancing timesteps."""
         self.timer = QtCore.QTimer()
-        self.timer.setInterval(10)  # 10 steps per second (100 ms per step)
+        self.timer.setInterval(1)  # 10 steps per second (100 ms per step)
         self.timer.timeout.connect(self.update_timestep)
 
     def load_universe(self):
