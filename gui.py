@@ -56,10 +56,11 @@ def collides(a1, b1, a2, b2):
 class Universe:
     """Handles loading and storing universe configuration from a JSON file."""
     def __init__(self):
-        self.setup = { "camera_position": [0, 0, 0], "timesteps": 250 }
+        self.setup = { "camera_position": [0, 0, 0], "timesteps": 10 }
         self.objects = []
         self.forces = []
         self.solved_data = []
+        self.solved_forces = []
         self.solved = False
 
     def load_universe_file(self, filepath):
@@ -81,6 +82,7 @@ class Universe:
     
     def solve_system(self):
         
+        '''
         i = Circle(name="circle1",pos=np.array([-0.9,0.8,0]),lin_vel=np.array([0.5,-0.25,0.0]),radius=0.5)
         j = Circle(name="circle2",pos=np.array([1.2,-0.8,0]),lin_vel=np.array([0.0,0.15,0.0]),radius=0.5,mass=0.3)
         k = Circle(name="circle3",pos=np.array([4.2,-2.6,0]),lin_vel=np.array([0.0,0.0,0.0]),radius=0.5)
@@ -94,8 +96,28 @@ class Universe:
             k = copy.deepcopy(k)
             l = copy.deepcopy(l)
             self.solved_data.append([i,j,k,l])
+            '''
         
-        # print(self.solved_data)
+        i = Circle(name="circle1",pos=np.array([0.0,0.5,0.0]),lin_vel=np.array([2.0,0.0,0.0]),radius=0.5)
+        j = Circle(name="circle2",pos=np.array([1.5,0.0,0.0]),lin_vel=np.array([0.0,0.0,0.0]),radius=0.5)
+        
+        forces = []
+            
+        self.solved_data.append([i,j])
+        self.solved_forces.append([])
+        
+        for t in range(self.setup["timesteps"]):
+            integrate([i,j],forces)
+            i = copy.deepcopy(i)
+            j = copy.deepcopy(j)
+            
+            self.solved_data.append([i,j])
+            self.solved_forces.append(copy.deepcopy(forces))
+            
+            forces = []
+            
+        print(self.solved_data)
+        print(self.solved_forces)
         
         '''
         setup = self.setup
@@ -201,6 +223,11 @@ class UniverseScene:
         self.solved_text = []
         
         '''
+        scene.visuals.Arrow(parent=self.view.scene,
+                            pos=np.array([ (0,0,0), (1,1,0) ]),
+                            width=4) '''
+        
+        '''
         self.circles = scene.visuals.Ellipse(parent=self.view.scene,
                                             color="blue",
                                             border_color="black",
@@ -258,7 +285,7 @@ class UniverseScene:
     
     def update_objects_to_timestep(self, universe, current_timestep):
         """Updates the markers in the scene based on a list of objects."""
-    
+        
         if self.solved_meshes == []:
         
             for mesh in universe.solved_data[0]:
@@ -270,7 +297,7 @@ class UniverseScene:
                                                                 radius=mesh.radius))
                 
                 self.solved_text.append(scene.visuals.Text(parent=self.view.scene,
-                                                           text="+",
+                                                           text=" ",
                                                            color="black",
                                                            font_size=500,
                                                            pos=mesh.pos,
@@ -281,9 +308,26 @@ class UniverseScene:
                 self.solved_meshes[m].center = universe.solved_data[current_timestep][m].pos
                 self.solved_text[m].pos = universe.solved_data[current_timestep][m].pos
                 self.solved_text[m].rotation = universe.solved_data[current_timestep][m].angle*(180/np.pi)
-                print("computed: ", universe.solved_data[current_timestep][m].angle)
-                print("label: ", self.solved_text[m].rotation)
-                print()
+                
+                scene.visuals.Ellipse(parent=self.view.scene,
+                                      color="white",
+                                      border_color="black",
+                                      border_width=3.0,
+                                      center=self.solved_meshes[m].center,
+                                      radius=0.01)
+    
+            if universe.solved_forces[current_timestep] != []:
+                print("Do that thang")
+                for solved_force in universe.solved_forces[current_timestep]:
+                    start = solved_force[0:3]
+                    end = solved_force[3:6]
+                    scene.visuals.Arrow(parent=self.view.scene,
+                                        pos=np.array([start, end]),
+                                        width=4)
+                
+                # print("computed: ", universe.solved_data[current_timestep][m].angle)
+                # print("label: ", self.solved_text[m].rotation)
+                # print()
         
         
         # [for mesh in universe.solved_data[current_timestep]]:

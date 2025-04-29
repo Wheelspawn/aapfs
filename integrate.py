@@ -11,6 +11,23 @@ import typing
 import numpy as np
 from multimethod import multimethod
 
+class TestMesh():
+    def __init__(self):
+        self.pos = pos = np.array([[0.0, 0.0, 0.0],
+                                   [1.0, 0.0, 0.0],
+                                   [1.0, 1.0, 0.0],
+                                   [0.0, 1.0, 0.0]])
+        
+        self.edges = np.array([[0,1],
+                               [1,2],
+                               [2,3],
+                               [3,0]])
+        
+        self.stiffness = np.array([[2.5],
+                                   [2.5],
+                                   [2.5],
+                                   [2.5]])
+
 class PhysicalMesh():
     def __init__(self, name, pos=np.zeros(3), mass=1.0, lin_vel=np.zeros(3), ang_vel=np.zeros(3), fixed=False):
         self.name = name
@@ -65,10 +82,16 @@ class Circle(PhysicalMesh):
 def get_circle_force_components(m: PhysicalMesh, force: np.array, force_pos: np.array):
     # projection of force onto direction towards center of mass (linear component of the force)
     c_of_mass = m.pos - force_pos
-    proj_f = (np.dot(c_of_mass, force) / (np.linalg.norm(c_of_mass) * np.linalg.norm(c_of_mass))) * c_of_mass
+    print("force: ", force)
+    print("m.pos: ", m.pos)
+    print("force_pos: ", force_pos)
+    print("c_of_mass: ", c_of_mass)
+    proj_f = (np.dot(c_of_mass, force) / (np.linalg.norm(c_of_mass) * np.linalg.norm(c_of_mass))) * c_of_mass + force_pos
+    print("proj_f: ", proj_f)
     
     # rejection (rotational component of the force)
-    rej = force - proj_f
+    rej = (force - proj_f) + force_pos
+    print("rej: ", rej)
     
     return (proj_f,rej)
 
@@ -126,7 +149,7 @@ def adjust_collision(m1: PhysicalMesh, m2: PhysicalMesh, dt, e=0.0001):
     # number so we know how to apply the resulting forces properly in the integrator.
     return (np.linalg.norm(m1.pos)-np.linalg.norm(m1_p0_old))/(np.linalg.norm(m1_p1_old)-np.linalg.norm(m1_p0_old))
 
-def integrate(meshes: list[PhysicalMesh]):
+def integrate(meshes: list[PhysicalMesh], forces: list[np.array]):
     
     dt = 0.05
     e = 0.9
@@ -134,7 +157,7 @@ def integrate(meshes: list[PhysicalMesh]):
     for i in range(len(meshes)):
         i_pos_old = meshes[i].pos
         meshes[i].pos += meshes[i].lin_vel * dt
-        meshes[i].angle += np.linalg.norm(meshes[i].ang_vel) * dt
+        # meshes[i].angle += np.linalg.norm(meshes[i].ang_vel) * dt
     
     for i in range(len(meshes)):
         for j in range(i+1, len(meshes)):
@@ -147,15 +170,24 @@ def integrate(meshes: list[PhysicalMesh]):
                 col_dt = adjust_collision(meshes[i],meshes[j],dt)
                 
                 # contact point of meshes
-                contact_point = meshes[j].pos + meshes[j].radius * (meshes[i].pos - meshes[j].pos)
+                contact_point = meshes[i].pos + (meshes[j].pos - meshes[i].pos)/2
+                print("contact_point: ", contact_point)
+                print()
                 
-                print("contact point: ", contact_point)
                 # linear and rotational force vectors
-                fc_1 = get_circle_force_components(meshes[i],meshes[i].lin_vel,contact_point)
-                fc_2 = get_circle_force_components(meshes[j],meshes[j].lin_vel,contact_point)
+                fc_1 = get_circle_force_components(meshes[j],meshes[i].lin_vel,contact_point)
+                # fc_2 = get_circle_force_components(meshes[j],meshes[j].lin_vel,contact_point)
                 
-                print("fc_1: ", fc_1)
-                print("fc_2: ", fc_2)
+                forces.append( np.append( contact_point, meshes[i].pos ) )
+                # forces.append( np.append( contact_point, meshes[j].pos ) )
+                
+                forces.append( np.append( contact_point, fc_1[0] ) )
+                forces.append( np.append( contact_point, fc_1[1] ) )
+                
+                # forces.append( np.append( contact_point, fc_2[0] ) )
+                # forces.append( np.append( contact_point, fc_2[1] ) )
+                
+                
                 # velocity of center of mass
                 v_com = ((meshes[i].mass * meshes[i].lin_vel) + (meshes[j].mass * meshes[j].lin_vel))/(meshes[i].mass + meshes[j].mass)
                 
@@ -168,31 +200,18 @@ def integrate(meshes: list[PhysicalMesh]):
                 meshes[j].lin_vel = j_v2
                 
                 # new angular velocity
-                meshes[i].ang_vel = (1 + e) * v_com - e * meshes[i].ang_vel
-                meshes[j].ang_vel = (1 + e) * v_com - e * meshes[j].ang_vel
+                # meshes[i].ang_vel = (1 + e) * v_com - e * meshes[i].ang_vel
+                # meshes[j].ang_vel = (1 + e) * v_com - e * meshes[j].ang_vel
                 
                 # position has been adjusted from meshes[i] to contact point over dt.
                 # displace position by the velocity of the remaining period of time.
                 meshes[i].pos += (1 - col_dt) * meshes[i].lin_vel
                 meshes[j].pos += (1 - col_dt) * meshes[j].lin_vel
                 
-                '''
-                print(meshes[i].name, ", ",
-                      meshes[j].name, "collide at: ",
-                      meshes[i].pos, ", ",
-                      meshes[j].pos)
-                print("contact_point: ", contact_point)
-                print("meshes[i].lin_vel: ", meshes[i].lin_vel)
-                print("meshes[j].lin_vel: ", meshes[j].lin_vel)
-                print(meshes[i].name, "forc01e components: ", fc_1)
-                print(meshes[j].name, "force components: ", fc_2)
-                print("mesh i v2: ", i_v2)
-                print("mesh j v2: ", j_v2)'''
-        
-        # print(meshes[0].name, " pos: ", meshes[0].pos, "   ", meshes[1].name, " pos: ", meshes[1].pos)
+                
 
-i = Circle(name="circle1",pos=np.array([0.0, 0.0, 0.0]),lin_vel=np.array([0.0,0.2,0.0]),radius=1.0)
-j = Circle(name="circle2",pos=np.array([0.0, 1.7001, 0.0]),lin_vel=np.array([0.0,-0.1,0.0]),radius=1.0)
+# i = Circle(name="circle1",pos=np.array([0.0, 0.0, 0.0]),lin_vel=np.array([0.0,0.2,0.0]),radius=1.0)
+# j = Circle(name="circle2",pos=np.array([0.0, 1.7001, 0.0]),lin_vel=np.array([0.0,-0.1,0.0]),radius=1.0)
 
 # print(closing(i,j))
 # print(adjust_collision(i,j,1))
