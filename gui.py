@@ -41,12 +41,13 @@ def collides(a1, b1, a2, b2):
     
     c = np.divide(p_,d_,out=np.zeros_like(p_),where=d_!=0)
     
+    '''
     print(a1, " ", a2)
     print(b1, " ", b2)
     print(d1, " ", d2)
     print(c)
     print(a1 + d1*c, " ", b1 + d2*c)
-    print()
+    print() '''
     
     '''
     return ( ((p1[0] - p2[0]) / (d2[0] - d1[0])),
@@ -56,7 +57,7 @@ def collides(a1, b1, a2, b2):
 class Universe:
     """Handles loading and storing universe configuration from a JSON file."""
     def __init__(self):
-        self.setup = { "camera_position": [0, 0, 0], "timesteps": 10 }
+        self.setup = { "camera_position": [0, 0, 0], "timesteps": 7 }
         self.objects = []
         self.forces = []
         self.solved_data = []
@@ -317,13 +318,19 @@ class UniverseScene:
                                       radius=0.01)
     
             if universe.solved_forces[current_timestep] != []:
-                print("Do that thang")
+                # print("Do that thang")
                 for solved_force in universe.solved_forces[current_timestep]:
                     start = solved_force[0:3]
                     end = solved_force[3:6]
                     scene.visuals.Arrow(parent=self.view.scene,
                                         pos=np.array([start, end]),
                                         width=4)
+                    
+                    scene.visuals.Ellipse(parent=self.view.scene,
+                                          color="gray",
+                                          border_color="gray",
+                                          center=np.array(end),
+                                          radius=0.025)
                 
                 # print("computed: ", universe.solved_data[current_timestep][m].angle)
                 # print("label: ", self.solved_text[m].rotation)

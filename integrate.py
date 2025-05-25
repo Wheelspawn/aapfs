@@ -164,55 +164,12 @@ def integrate(meshes: list[PhysicalMesh], forces: list[np.array]):
             
             if collides(meshes[i], meshes[j]):
                 
-                j_pos_old = meshes[j].pos
-                
                 # get the time interval of the collision
-                col_dt = adjust_collision(meshes[i],meshes[j],dt)
+                adjust_collision(meshes[i],meshes[j],dt)
                 
                 # contact point of meshes
                 contact_point = meshes[i].pos + (meshes[j].pos - meshes[i].pos)/2
                 print("contact_point: ", contact_point)
                 print()
                 
-                # linear and rotational force vectors
-                fc_1 = get_circle_force_components(meshes[j],meshes[i].lin_vel,contact_point)
-                # fc_2 = get_circle_force_components(meshes[j],meshes[j].lin_vel,contact_point)
                 
-                forces.append( np.append( contact_point, meshes[i].pos ) )
-                # forces.append( np.append( contact_point, meshes[j].pos ) )
-                
-                forces.append( np.append( contact_point, fc_1[0] ) )
-                forces.append( np.append( contact_point, fc_1[1] ) )
-                
-                # forces.append( np.append( contact_point, fc_2[0] ) )
-                # forces.append( np.append( contact_point, fc_2[1] ) )
-                
-                
-                # velocity of center of mass
-                v_com = ((meshes[i].mass * meshes[i].lin_vel) + (meshes[j].mass * meshes[j].lin_vel))/(meshes[i].mass + meshes[j].mass)
-                
-                # new velocities
-                i_v2 = (1 + e) * v_com - e * meshes[i].lin_vel
-                j_v2 = (1 + e) * v_com - e * meshes[j].lin_vel
-                
-                # new linear velocity
-                meshes[i].lin_vel = i_v2
-                meshes[j].lin_vel = j_v2
-                
-                # new angular velocity
-                # meshes[i].ang_vel = (1 + e) * v_com - e * meshes[i].ang_vel
-                # meshes[j].ang_vel = (1 + e) * v_com - e * meshes[j].ang_vel
-                
-                # position has been adjusted from meshes[i] to contact point over dt.
-                # displace position by the velocity of the remaining period of time.
-                meshes[i].pos += (1 - col_dt) * meshes[i].lin_vel
-                meshes[j].pos += (1 - col_dt) * meshes[j].lin_vel
-                
-                
-
-# i = Circle(name="circle1",pos=np.array([0.0, 0.0, 0.0]),lin_vel=np.array([0.0,0.2,0.0]),radius=1.0)
-# j = Circle(name="circle2",pos=np.array([0.0, 1.7001, 0.0]),lin_vel=np.array([0.0,-0.1,0.0]),radius=1.0)
-
-# print(closing(i,j))
-# print(adjust_collision(i,j,1))
-# print(closing(i,j))

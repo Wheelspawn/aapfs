@@ -6,6 +6,8 @@
   "objects": [
     {
       "unique_name": "particle1",
+      "type": "particle",
+      "color": [1.0, 0.0, 0.0],
       "position": {
         "value": [-2.0, 0.0, 0.0],
         "unit": "m"
@@ -17,6 +19,8 @@
     },
     {
       "unique_name": "particle2",
+      "type": "particle",
+      "color": [0.0, 1.0, 0.0],
       "position": {
         "value": [0.0, -2.0, 0.0],
         "unit": "m/s"
