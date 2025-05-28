@@ -8,56 +8,11 @@ import copy
 
 from integrate import *
 
-class Particle:
-    def __init__(self, timesteps=0, start_pos=np.zeros(3)):
-        self.timestep = 0
-        self.max_timestep = timesteps
-        self.positions = np.zeros(timesteps,3)
-        self.velocities = np.zeros(timesteps,3)
-        self.accelerations = np.zeros(timesteps,3)
-        self.forces = np.zeros(timesteps,3)
-        
-        self.positions[0] = start_pos
-        
-    def reset(self):
-        self.timestep = 0
-        self.positions = np.zeros(self.max_timestep)
-        self.velocities = np.zeros(self.max_timestep)
-        self.accelerations = np.zeros(self.max_timestep)
-        self.forces = np.zeros(self.max_timestep)
-    
-def collides(a1, b1, a2, b2):
-    # a1 + (a2 - a1) * t = b1 + (b2 - b1) * t
-    # p1 + d1 * t = p2 + d2 * t or
-    # p1 - p2 = (d2 - d1) * t
-    
-    # if d2 - d1 is 0, we can just get rid of these
-    # because we don't need to collision check the stationary axis
-    
-    d1 = a2 - a1
-    d2 = b2 - b1
-    p_ = a1 - b1
-    d_ = d2 - d1
-    
-    c = np.divide(p_,d_,out=np.zeros_like(p_),where=d_!=0)
-    
-    '''
-    print(a1, " ", a2)
-    print(b1, " ", b2)
-    print(d1, " ", d2)
-    print(c)
-    print(a1 + d1*c, " ", b1 + d2*c)
-    print() '''
-    
-    '''
-    return ( ((p1[0] - p2[0]) / (d2[0] - d1[0])),
-             ((p1[1] - p2[1]) / (d2[1] - d1[1])) ) '''
-
 # --- Universe Data Model ---
 class Universe:
     """Handles loading and storing universe configuration from a JSON file."""
     def __init__(self):
-        self.setup = { "camera_position": [0, 0, 0], "timesteps": 7 }
+        self.setup = { "camera_position": [0, 0, 0], "timesteps": 90 }
         self.objects = []
         self.forces = []
         self.solved_data = []
@@ -83,122 +38,40 @@ class Universe:
     
     def solve_system(self):
         
-        '''
-        i = Circle(name="circle1",pos=np.array([-0.9,0.8,0]),lin_vel=np.array([0.5,-0.25,0.0]),radius=0.5)
-        j = Circle(name="circle2",pos=np.array([1.2,-0.8,0]),lin_vel=np.array([0.0,0.15,0.0]),radius=0.5,mass=0.3)
-        k = Circle(name="circle3",pos=np.array([4.2,-2.6,0]),lin_vel=np.array([0.0,0.0,0.0]),radius=0.5)
-        l = Circle(name="circle4",pos=np.array([1.5,2.0,0]),lin_vel=np.array([0.0,0.0,0.0]),radius=0.25,mass=0.1)
+        s = FixedSpringCube(name="spring1",
+                            verts=np.array([[-2.0,0.0],
+                                          [0.0,0.0],
+                                          [0.0,2.0],
+                                          [-2.0,2.0]]),
+                            mass=1.0,
+                            lin_vel=np.array([-2.0,0.0]),
+                            spring_dir=SpringDirection.RIGHT)
         
-        self.solved_data.append([i,j,k,l])
-        for t in range(self.setup["timesteps"]):
-            integrate([i,j,k,l])
-            i = copy.deepcopy(i)
-            j = copy.deepcopy(j)
-            k = copy.deepcopy(k)
-            l = copy.deepcopy(l)
-            self.solved_data.append([i,j,k,l])
-            '''
-        
-        i = Circle(name="circle1",pos=np.array([0.0,0.5,0.0]),lin_vel=np.array([2.0,0.0,0.0]),radius=0.5)
-        j = Circle(name="circle2",pos=np.array([1.5,0.0,0.0]),lin_vel=np.array([0.0,0.0,0.0]),radius=0.5)
+        c = Cube(name="cube1",
+                 verts=np.array([[2.0,0.0],
+                               [4.0,0.0],
+                               [4.0,2.0],
+                               [2.0,2.0]]),
+                 mass=1.0,
+                 lin_vel=np.array([0.0,0.0]))
         
         forces = []
             
-        self.solved_data.append([i,j])
+        self.solved_data.append([s,c])
         self.solved_forces.append([])
         
         for t in range(self.setup["timesteps"]):
-            integrate([i,j],forces)
-            i = copy.deepcopy(i)
-            j = copy.deepcopy(j)
+            integrate([s,c],forces)
+            s = copy.deepcopy(s)
+            c = copy.deepcopy(c)
             
-            self.solved_data.append([i,j])
+            self.solved_data.append([s,c])
             self.solved_forces.append(copy.deepcopy(forces))
             
             forces = []
-            
-        print(self.solved_data)
-        print(self.solved_forces)
         
-        '''
-        setup = self.setup
-        objects = self.objects
-        forces = self.forces
-        self.solved_data.append({"objects":objects, "forces":forces})
-        
-        for t in range(self.setup["timesteps"]):
-            setup, objects, forces = solve(setup, objects, forces)
-            self.solved_data.append({"objects":objects, "forces":forces})
-        
-        print(self.solved_data)'''
-        
+        # print(self.solved_data)
         self.solved = True
-            
-        
-    '''
-    def solve(self):
-        
-        if self.solved:
-            return
-        
-        positions = {}
-        
-        for obj in self.data["objects"]:
-            obj_uname = obj["unique_name"]
-            positions[obj_uname] = [np.array(obj["position"]["value"]),
-                                      np.array(obj["position"]["value"])]
-        
-        for t in range(1,self.max_timestep):
-            
-            for obj in self.data["objects"]:
-                obj_uname = obj["unique_name"]
-                
-                diff = positions[obj_uname][t] - positions[obj_uname][t-1]
-                
-                # acceleration (a = f/m)
-                for force in self.data["forces"]:
-                    if force["unique_name"] == obj_uname and force["timestep"] == t:
-                        diff += (np.array(force["value"]) / obj["mass"]["value"])
-                        
-                # gravity
-                diff += np.array([0, 0, self.gravity_const]) / (obj["mass"]["value"] * 100)
-                
-                # friction
-                diff += -diff * self.friction_coeff
-                
-                positions[obj_uname].append(positions[obj_uname][t] + diff)
-                
-                # print(positions[obj_uname][t] + diff)
-            
-            # collisions
-            for obj1 in positions:
-                for obj2 in positions:
-                    if obj1 != obj2:
-                        a1 = positions[obj1][t-1]
-                        b1 = positions[obj2][t-1]
-                        
-                        a2 = positions[obj1][t]
-                        b2 = positions[obj2][t]
-                    
-                        collides(a1, b1, a2, b2)
-        
-        self.solved_data = positions
-        self.solved = True
-        
-        print("Solved.")
-        '''
-
-def solve(setup: dict, objects: list[dict], forces: list[dict]) -> tuple[dict, list[dict], list[dict]]:
-    
-    new_objects = []
-    
-    for object_t in objects:
-        object_t1 = copy.deepcopy(object_t)
-        object_t1["position"]["value"] += object_t["velocity"]["value"]
-        new_objects.append(object_t1)
-    
-    return (setup, new_objects, forces)
-        
     
 # --- Universe Scene (VisPy Viewport) ---
 class UniverseScene:
@@ -224,11 +97,18 @@ class UniverseScene:
         self.solved_text = []
         
         '''
+        self.rectangles = scene.visuals.Ellipse(parent=self.view.scene,
+                                                color="blue",
+                                                border_color="black",
+                                                border_width=4.0,
+                                                center=(0.5,0.5),
+                                                height=0,
+                                                width=0)
+        
         scene.visuals.Arrow(parent=self.view.scene,
                             pos=np.array([ (0,0,0), (1,1,0) ]),
-                            width=4) '''
+                            width=4)
         
-        '''
         self.circles = scene.visuals.Ellipse(parent=self.view.scene,
                                             color="blue",
                                             border_color="black",
@@ -290,80 +170,30 @@ class UniverseScene:
         if self.solved_meshes == []:
         
             for mesh in universe.solved_data[0]:
-                self.solved_meshes.append(scene.visuals.Ellipse(parent=self.view.scene,
-                                                                color="white",
-                                                                border_color="black",
-                                                                border_width=3.0,
-                                                                center=mesh.pos,
-                                                                radius=mesh.radius))
                 
-                self.solved_text.append(scene.visuals.Text(parent=self.view.scene,
-                                                           text=" ",
-                                                           color="black",
-                                                           font_size=500,
-                                                           pos=mesh.pos,
-                                                           rotation=mesh.angle*(180/np.pi)))
+                self.solved_meshes.append(scene.visuals.Rectangle(parent=self.view.scene,
+                                                                  color="blue",
+                                                                  border_color="black",
+                                                                  border_width=4.0,
+                                                                  center=mesh.center(),
+                                                                  height=mesh.height(),
+                                                                  width=mesh.width()))
                 
         else:
             for m in range(len(universe.solved_data[current_timestep])):
-                self.solved_meshes[m].center = universe.solved_data[current_timestep][m].pos
-                self.solved_text[m].pos = universe.solved_data[current_timestep][m].pos
-                self.solved_text[m].rotation = universe.solved_data[current_timestep][m].angle*(180/np.pi)
+                self.solved_meshes[m].pos = universe.solved_data[current_timestep][m].verts
+                # self.solved_text[m].pos = universe.solved_data[current_timestep][m].pos
+                # self.solved_text[m].rotation = universe.solved_data[current_timestep][m].angle*(180/np.pi)
                 
+                '''
                 scene.visuals.Ellipse(parent=self.view.scene,
                                       color="white",
                                       border_color="black",
                                       border_width=3.0,
-                                      center=self.solved_meshes[m].center,
-                                      radius=0.01)
+                                      center=self.solved_meshes[m].center(),
+                                      radius=0.01) '''
     
-            if universe.solved_forces[current_timestep] != []:
-                # print("Do that thang")
-                for solved_force in universe.solved_forces[current_timestep]:
-                    start = solved_force[0:3]
-                    end = solved_force[3:6]
-                    scene.visuals.Arrow(parent=self.view.scene,
-                                        pos=np.array([start, end]),
-                                        width=4)
-                    
-                    scene.visuals.Ellipse(parent=self.view.scene,
-                                          color="gray",
-                                          border_color="gray",
-                                          center=np.array(end),
-                                          radius=0.025)
-                
-                # print("computed: ", universe.solved_data[current_timestep][m].angle)
-                # print("label: ", self.solved_text[m].rotation)
-                # print()
-        
-        
-        # [for mesh in universe.solved_data[current_timestep]]:
-            
-        '''
-        particle_pos = []
-        particle_colors = []
-        
-        circle_pos = []
-        circle_colors = []
-        
-        for obj in universe.solved_data[current_timestep]["objects"]:
-            
-            loc = obj["position"]["value"]
-            color = obj["color"]
-            
-            if obj["type"] == "particle":
-                particle_pos.append(loc)
-                particle_colors.append(color)
-                
-            elif obj["type"] == "circle":
-                circle_pos.append(loc)
-                circle_colors.append(color)
-        
-        self.markers.set_data(pos=np.array(particle_pos), face_color=np.array(particle_colors), size=10)
-        self.circles.set_data(pos=np.array(circle_pos), face_color=np.array(circle_colors), size=10)
-        '''
-        
-            
+    
     def toggle_axes(self):
         """Toggles the visibility of the axes."""
         self.axes.visible = not self.axes.visible
