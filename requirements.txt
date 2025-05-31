@@ -1,9 +1,10 @@
-spyder
-numpy
-scipy
-pandas
-matplotlib
-sympy
 cython
+matplotlib
+numpy
 PyQt5
+pandas
+scipy
+shapely
+spyder
+sympy
 vispy

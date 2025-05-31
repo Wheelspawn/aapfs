@@ -5,6 +5,9 @@ from PyQt5 import QtWidgets, QtCore
 from vispy import scene
 import typing
 import copy
+from vispy.io import load_data_file, read_png
+
+img_data = read_png('spring.png')
 
 from integrate import *
 
@@ -12,7 +15,7 @@ from integrate import *
 class Universe:
     """Handles loading and storing universe configuration from a JSON file."""
     def __init__(self):
-        self.setup = { "camera_position": [0, 0, 0], "timesteps": 90 }
+        self.setup = { "camera_position": [0, 0, 0], "timesteps": 100 }
         self.objects = []
         self.forces = []
         self.solved_data = []
@@ -40,18 +43,21 @@ class Universe:
         
         s = FixedSpringCube(name="spring1",
                             verts=np.array([[-2.0,0.0],
-                                          [0.0,0.0],
-                                          [0.0,2.0],
-                                          [-2.0,2.0]]),
+                                           [0.0,0.0],
+                                           [0.0,2.0],
+                                           [-2.0,2.0]]),
                             mass=1.0,
-                            lin_vel=np.array([-2.0,0.0]),
-                            spring_dir=SpringDirection.RIGHT)
+                            lin_vel=np.array([[0.0,0.0],
+                                                 [-2.0,0.0],
+                                                 [-2.0,0.0],
+                                                 [0.0,0.0]]),
+                            fixed=np.array([1,0,0,1]))
         
-        c = Cube(name="cube1",
+        c = Cube(name="cube2",
                  verts=np.array([[2.0,0.0],
-                               [4.0,0.0],
-                               [4.0,2.0],
-                               [2.0,2.0]]),
+                                [4.0,0.0],
+                                [4.0,2.0],
+                                [2.0,2.0]]),
                  mass=1.0,
                  lin_vel=np.array([0.0,0.0]))
         
@@ -65,6 +71,7 @@ class Universe:
             s = copy.deepcopy(s)
             c = copy.deepcopy(c)
             
+            # print("t: ", t)
             self.solved_data.append([s,c])
             self.solved_forces.append(copy.deepcopy(forces))
             
@@ -204,13 +211,16 @@ class UniverseScene:
 
 
 # --- Main GUI Window ---
-class PhysicsEngineGUI(QtWidgets.QMainWindow):
+class PhysicsEngineWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Educational Physics Engine")
+        self.setWindowTitle("Physics Engine")
         self.universe = Universe()
+        self.universe_scene = UniverseScene()
         self.current_timestep = 0
-
+        
+        self.analysis_window = AnalysisWindow(self)
+        
         self._init_ui()
         self._init_timer()
 
@@ -225,7 +235,6 @@ class PhysicsEngineGUI(QtWidgets.QMainWindow):
         left_layout = QtWidgets.QVBoxLayout(left_widget)
 
         # Embed VisPy canvas into the PyQt layout
-        self.universe_scene = UniverseScene()
         left_layout.addWidget(self.universe_scene.canvas.native)
 
         # Control buttons layout
@@ -255,6 +264,11 @@ class PhysicsEngineGUI(QtWidgets.QMainWindow):
         btn_layout.addWidget(self.solve_btn)
         left_layout.addLayout(btn_layout)
 
+        self.analysis_btn = QtWidgets.QPushButton("Analysis")
+        self.analysis_btn.clicked.connect(self.show_analysis_window)
+        btn_layout.addWidget(self.analysis_btn)
+        left_layout.addLayout(btn_layout)
+        
         # Timestep slider and Play/Pause controls
         timestep_layout = QtWidgets.QHBoxLayout()
         self.timestep_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
@@ -367,6 +381,11 @@ class PhysicsEngineGUI(QtWidgets.QMainWindow):
         
         if self.universe.solved:
             self.universe_scene.update_objects_to_timestep(self.universe, self.current_timestep)
+    
+    def show_analysis_window(self):
+        if self.universe.solved:
+            self.analysis_window._init_ui(self.universe.solved_data)
+            self.analysis_window.show()
 
     def populate_side_panel(self):
         """Populates the side panel with a tree view of the universe objects and their properties."""
@@ -413,10 +432,51 @@ class PhysicsEngineGUI(QtWidgets.QMainWindow):
         
         self.side_panel.expandAll()
 
+import sys
+import matplotlib
+matplotlib.use('Qt5Agg')
+
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from matplotlib.figure import Figure        
+        
+
+class MplCanvas(FigureCanvasQTAgg):
+
+    def __init__(self, parent=None, width=5, height=4, dpi=100):
+        fig = Figure(figsize=(width, height), dpi=dpi)
+        self.axes = fig.add_subplot(111)
+        super().__init__(fig)
+
+
+class AnalysisWindow(QtWidgets.QMainWindow):
+    def __init__(self, parent):
+        super(AnalysisWindow, self).__init__(parent)
+        self.resize(1600, 1200)
+        self.setWindowTitle("Analysis Window")
+        
+    def _init_ui(self, solved_data):
+        """Initializes the main UI layout and widgets."""
+        central_widget = QtWidgets.QWidget()
+        self.setCentralWidget(central_widget)
+        main_layout = QtWidgets.QHBoxLayout(central_widget)
+        
+        data = np.array(solved_data)
+        for i in range(data.shape[1]):
+            
+            sc = MplCanvas(self, width=5, height=4, dpi=100)
+            # speed over time
+            sc.axes.set_ylabel('Speed in m/s')
+            sc.axes.set_title(data[0:,i][0].name)
+
+            sc.axes.plot([d for d in range(data.shape[0])], [np.linalg.norm(d.lin_vel) for d in data[0:,i]])
+            
+            main_layout.addWidget(sc)                          
+            
+        print(solved_data)
 
 def main():
     app = QtWidgets.QApplication(sys.argv)
-    window = PhysicsEngineGUI()
+    window = PhysicsEngineWindow()
     window.resize(1600, 1200)
     window.show()
     sys.exit(app.exec_())

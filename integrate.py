@@ -13,6 +13,7 @@ from multimethod import multimethod
 from enum import Enum
 import shapely
 from shapely.geometry import LineString, Point
+import copy
 
 # which way the springy end of the spring points
 # e.g. if the direction is TOP then if something is dropped onto the spring it activates the spring force and bounces
@@ -67,6 +68,9 @@ class Cube(PhysicalMesh):
         
         self.lin_vel += lin_force / self.mass
     
+    def displace(self, distance):
+        self.verts += distance
+    
     def center(self):
         # print([sum(self.verts[:,i])/self.verts.shape[0] for i in range(self.verts.shape[1])])
         return [sum(self.verts[:,i])/self.verts.shape[0] for i in range(self.verts.shape[1])]
@@ -87,19 +91,27 @@ class Cube(PhysicalMesh):
 
     
 class FixedSpringCube(PhysicalMesh):
-    def __init__(self, name, verts=np.zeros((4,2)), mass=1.0, lin_vel=np.zeros(2), ang_vel=np.zeros(2), spring_dir=None, k=1.0):
+    def __init__(self, name, verts=np.zeros((4,2)), mass=1.0, lin_vel=np.zeros((4,2)), fixed=np.array([[0,0,0,0]]), k=1.0):
         self.name = name
         self.verts = verts
+        self.orig_pos = copy.deepcopy(verts)
         self.mass = mass
         self.lin_vel = lin_vel
-        self.ang_vel = ang_vel
-        self.spring_dir = spring_dir
+        self.fixed = fixed
         self.k = k
     
     def apply_force(self, force: np.array):
-        if self.spring_dir == SpringDirection.RIGHT:
-            self.lin_vel += force / self.mass
-                    
+        for i in range(len(self.fixed)):
+            if self.fixed[i] != 1:
+                self.lin_vel[i] += (force / self.mass)[i]
+            
+    def apply_spring_force(self):
+        force = self.k * (self.orig_pos - self.verts)
+        self.lin_vel += (force / self.mass)
+    
+    def displace(self, distance):
+        self.verts += distance
+            
     def center(self):
         # print([sum(self.verts[:,i])/self.verts.shape[0] for i in range(self.verts.shape[1])])
         return [sum(self.verts[:,i])/self.verts.shape[0] for i in range(self.verts.shape[1])]
@@ -149,12 +161,10 @@ def intersects(m1: PhysicalMesh, m2: PhysicalMesh):
     return False
 
 def adjust_collision(m1: PhysicalMesh, m2: PhysicalMesh, dt, e=0.001):
-    c = shapely.distance(shapely.Polygon(m1.verts),shapely.Polygon(m2.verts))
-    
-    dt = 0.5
+    d = shapely.distance(shapely.Polygon(m1.verts),shapely.Polygon(m2.verts))
     
     # nothing to adjust; doesn't collide
-    if c > 0:
+    if d > 0:
         return
     
     # get previous position
@@ -169,13 +179,13 @@ def adjust_collision(m1: PhysicalMesh, m2: PhysicalMesh, dt, e=0.001):
     m1_p1_old = m1.verts
     m2_p1_old = m2.verts
     
-    while (c >= e or c < 0):
+    while (d >= e or d < 0):
         
         m1.verts = (m1_p1 - m1_p0)/2 + m1_p0
         m2.verts = (m2_p1 - m2_p0)/2 + m2_p0
         
-        c = shapely.distance(shapely.Polygon(m1.verts),shapely.Polygon(m2.verts))
-        if c > e:
+        d = shapely.distance(shapely.Polygon(m1.verts),shapely.Polygon(m2.verts))
+        if d > e:
             m1_p0 = m1.verts
             m2_p0 = m2.verts
         else:
@@ -186,26 +196,86 @@ def adjust_collision(m1: PhysicalMesh, m2: PhysicalMesh, dt, e=0.001):
     # number so we know how to apply the resulting forces properly in the integrator.
     # the ratio of the differences in magnitudes gives us this number.
     return (np.linalg.norm(m1.verts)-np.linalg.norm(m1_p0_old))/(np.linalg.norm(m1_p1_old)-np.linalg.norm(m1_p0_old))
-
+    
 def integrate(meshes: list[PhysicalMesh], forces: list[np.array]):
     
     dt = 0.05
     
-    for i in range(len(meshes)):
-        i_pos_old = meshes[i].verts
-        meshes[i].verts += meshes[i].lin_vel * dt
-        # meshes[i].angle += np.linalg.norm(meshes[i].ang_vel) * dt
+    for a in range(len(meshes)):
+        a_pos_old = copy.deepcopy(meshes[a].verts)
+        if type(meshes[a]) == FixedSpringCube:
+            meshes[a].apply_spring_force()
+        meshes[a].displace(meshes[a].lin_vel * dt)
+        # meshes[a].angle += np.linalg.norm(meshes[a].ang_vel) * dt
     
-    for i in range(len(meshes)):
-        for j in range(i+1, len(meshes)):
+    for b in range(len(meshes)):
+        if (a != b and intersects(meshes[a], meshes[b])):
             
-            if intersects(meshes[i], meshes[j]):
+            print("intersects")
+            
+            adjust_collision(meshes[a],meshes[b],dt)
+            
+            # from conservation of momentum
+            # m_a * v_a1 + m_b * v_b1 =
+            # m_a * v_a2 + m_b * v_b2
+            # and
+            # v_b2 - v_a2 = -(v_b1 - v_a1)
+            # or 
+            # v_b2 = v_a2 - (v_b1 - v_a1)
+            # and
+            # v_a2 = v_b2 + (v_b1 - v_a1)
+            
+            a_v1 = meshes[a].lin_vel
+            b_v1 = meshes[b].lin_vel
+            
+            v_b2_minus_v_a2 = -(b_v1 - a_v1)
+            
+            # rearranging
+            a_v2 = ( 2 * ( meshes[b].mass * b_v1 ) + a_v1 * ( meshes[a].mass + meshes[b].mass ) ) / (meshes[a].mass + meshes[b].mass)
+            b_v2 = -(b_v1 - a_v1 ) + a_v2
+            
+            # print(meshes[a].lin_vel)
+            # print(meshes[b].lin_vel)
+            
+            meshes[a].lin_vel = a_v2
+            meshes[b].lin_vel = b_v2
+            
+            # print(meshes[a].lin_vel)
+            # print(meshes[b].lin_vel)
+            # print()
+            
+            print("a: ", meshes[a].verts)
+            print("b: ", meshes[b].verts)
+            print()
                 
-                adjust_collision(meshes[i],meshes[j],dt)
-                
-                # contact point of meshes
-                contact_point = meshes[i].verts + (meshes[j].verts - meshes[i].verts)/2
-                print("contact_point: ", contact_point)
-                print()
-                
-                
+
+'''
+f=FixedSpringCube('spring1',
+                  verts=np.array([[0., 0.],
+                                  [1., 0.],
+                                  [1., 1.],
+                                  [0., 1.]]),
+                  k = 2.5)
+
+f.apply_force(np.array([[0., 0.],
+                        [-0.5, 0.],
+                        [-0.5., 0.],
+                        [0., 0.]]))
+
+dt = 0.1
+
+print(f.verts)
+print(f.lin_vel)
+print()
+f.verts += f.lin_vel * dt
+
+for i in range(16):
+    f.apply_spring_force()
+    f.verts += f.lin_vel * dt
+    print(np.round(f.verts,2))
+    print()
+    pass
+
+'''
+
+
