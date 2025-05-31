@@ -110,7 +110,14 @@ class FixedSpringCube(PhysicalMesh):
         self.lin_vel += (force / self.mass)
     
     def displace(self, distance):
-        self.verts += distance
+        # print("verts: ", self.verts)
+        # print("distance: ", distance)
+        for i in range(len(self.fixed)):
+            if self.fixed[i] != 1:
+                # print(i)
+                # print("diff: ", self.verts[i] + distance[i])
+                self.verts[i] += distance[i]
+        # print()
             
     def center(self):
         # print([sum(self.verts[:,i])/self.verts.shape[0] for i in range(self.verts.shape[1])])
@@ -181,8 +188,11 @@ def adjust_collision(m1: PhysicalMesh, m2: PhysicalMesh, dt, e=0.001):
     
     while (d >= e or d < 0):
         
-        m1.verts = (m1_p1 - m1_p0)/2 + m1_p0
-        m2.verts = (m2_p1 - m2_p0)/2 + m2_p0
+        # m1.verts = (m1_p1 - m1_p0)/2 + m1_p0
+        # m2.verts = (m2_p1 - m2_p0)/2 + m2_p0
+        
+        m1.displace(-(m1_p1 - m1_p0)/2)
+        m2.displace(-(m1_p1 - m1_p0)/2)
         
         d = shapely.distance(shapely.Polygon(m1.verts),shapely.Polygon(m2.verts))
         if d > e:
@@ -216,14 +226,27 @@ def integrate(meshes: list[PhysicalMesh], forces: list[np.array]):
             adjust_collision(meshes[a],meshes[b],dt)
             
             # from conservation of momentum
-            # m_a * v_a1 + m_b * v_b1 =
-            # m_a * v_a2 + m_b * v_b2
+            # m_a * a_v1 + m_b * b_v1 =
+            # m_a * a_v2 + m_b * b_v2
             # and
-            # v_b2 - v_a2 = -(v_b1 - v_a1)
+            # b_v2 - a_v2 = -(b_v1 - a_v1)
             # or 
-            # v_b2 = v_a2 - (v_b1 - v_a1)
+            # b_v2 = a_v2 - (b_v1 - a_v1)
             # and
-            # v_a2 = v_b2 + (v_b1 - v_a1)
+            # a_v2 = b_v2 + (b_v1 - a_v1)
+            
+            
+            # m_a * a_v1 + m_b * b_v1 = m_a * (b_v2 + (b_v1 - a_v1)) + m_b * b_v2
+            
+            # m_a * a_v1 + m_b * b_v1 = m_a * b_v2 + m_a * (b_v1 - a_v1) + m_b * b_v2
+            
+            # m_a * a_v1 + m_b * b_v1 - m_a * (b_v1 - a_v1) = m_a * b_v2 + m_b * b_v2
+            
+            # m_a * a_v1 + m_b * b_v1 - m_a * (b_v1 - a_v1) = b_v2 * (m_a + m_b)
+            
+            # (m_a * a_v1 + m_b * b_v1 - m_a * (b_v1 - a_v1) ) / (m_a + m_b) = b_v2
+            
+            # (m_a * a_v1 + m_b * b_v1 - m_a * b_v1 + m_a * a_v1) / (m_a + m_b) = b_v2
             
             a_v1 = meshes[a].lin_vel
             b_v1 = meshes[b].lin_vel
@@ -231,11 +254,12 @@ def integrate(meshes: list[PhysicalMesh], forces: list[np.array]):
             v_b2_minus_v_a2 = -(b_v1 - a_v1)
             
             # rearranging
-            a_v2 = ( 2 * ( meshes[b].mass * b_v1 ) + a_v1 * ( meshes[a].mass + meshes[b].mass ) ) / (meshes[a].mass + meshes[b].mass)
-            b_v2 = -(b_v1 - a_v1 ) + a_v2
+            a_v2 = ( 2 * ( meshes[b].mass * b_v1 ) + a_v1 * ( meshes[a].mass - meshes[b].mass ) ) / (meshes[a].mass + meshes[b].mass)
+            # b_v2 = (meshes[a].mass * a_v1 + meshes[b].mass * b_v1 - meshes[a].mass * a_v2) / meshes[b].mass
+            b_v2 = a_v2 - (b_v1 - a_v1)
             
-            # print(meshes[a].lin_vel)
-            # print(meshes[b].lin_vel)
+            print("a_v2: ", a_v2)
+            print("b_v2: ", b_v2)
             
             meshes[a].lin_vel = a_v2
             meshes[b].lin_vel = b_v2
@@ -244,9 +268,9 @@ def integrate(meshes: list[PhysicalMesh], forces: list[np.array]):
             # print(meshes[b].lin_vel)
             # print()
             
-            print("a: ", meshes[a].verts)
-            print("b: ", meshes[b].verts)
-            print()
+            # print("a: ", meshes[a].verts)
+            # print("b: ", meshes[b].verts)
+            # print()
                 
 
 '''

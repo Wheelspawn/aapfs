@@ -7,15 +7,13 @@ import typing
 import copy
 from vispy.io import load_data_file, read_png
 
-img_data = read_png('spring.png')
-
 from integrate import *
 
 # --- Universe Data Model ---
 class Universe:
     """Handles loading and storing universe configuration from a JSON file."""
     def __init__(self):
-        self.setup = { "camera_position": [0, 0, 0], "timesteps": 100 }
+        self.setup = { "camera_position": [0, 0, 0], "timesteps": 200 }
         self.objects = []
         self.forces = []
         self.solved_data = []
@@ -46,20 +44,20 @@ class Universe:
                                            [0.0,0.0],
                                            [0.0,2.0],
                                            [-2.0,2.0]]),
-                            mass=1.0,
+                            mass=5.0,
                             lin_vel=np.array([[0.0,0.0],
-                                                 [-2.0,0.0],
-                                                 [-2.0,0.0],
+                                                 [0.0,0.0],
+                                                 [0.0,0.0],
                                                  [0.0,0.0]]),
                             fixed=np.array([1,0,0,1]))
         
         c = Cube(name="cube2",
                  verts=np.array([[2.0,0.0],
-                                [4.0,0.0],
-                                [4.0,2.0],
-                                [2.0,2.0]]),
-                 mass=1.0,
-                 lin_vel=np.array([0.0,0.0]))
+                                 [4.0,0.0],
+                                 [4.0,2.0],
+                                 [2.0,2.0]]),
+                 mass=5.0,
+                 lin_vel=np.array([-1.0,0.0]))
         
         forces = []
             
@@ -472,7 +470,7 @@ class AnalysisWindow(QtWidgets.QMainWindow):
             
             main_layout.addWidget(sc)                          
             
-        print(solved_data)
+        # print(solved_data)
 
 def main():
     app = QtWidgets.QApplication(sys.argv)
