@@ -67,6 +67,12 @@ class Cube(PhysicalMesh):
             return
         
         self.lin_vel += lin_force / self.mass
+        
+    def apply_velocity(self, lin_vel: np.array):
+        self.lin_vel += lin_vel
+    
+    def set_velocity(self, lin_vel: np.array):
+        self.lin_vel = lin_vel    
     
     def displace(self, distance):
         self.verts += distance
@@ -109,6 +115,16 @@ class FixedSpringCube(PhysicalMesh):
         force = self.k * (self.orig_pos - self.verts)
         self.lin_vel += (force / self.mass)
     
+    def apply_velocity(self, lin_vel: np.array):
+        for i in range(len(self.fixed)):
+            if self.fixed[i] != 1:
+                self.lin_vel[i] += lin_vel[i]
+    
+    def set_velocity(self, lin_vel: np.array):
+        for i in range(len(self.fixed)):
+            if self.fixed[i] != 1:
+                self.lin_vel[i] = lin_vel[i]      
+                
     def displace(self, distance):
         # print("verts: ", self.verts)
         # print("distance: ", distance)
@@ -169,43 +185,87 @@ def intersects(m1: PhysicalMesh, m2: PhysicalMesh):
 
 def adjust_collision(m1: PhysicalMesh, m2: PhysicalMesh, dt, e=0.001):
     d = shapely.distance(shapely.Polygon(m1.verts),shapely.Polygon(m2.verts))
-    
-    # nothing to adjust; doesn't collide
-    if d > 0:
+    i = shapely.intersection(shapely.Polygon(m1.verts),shapely.Polygon(m2.verts))
+    # nothing to adjust; doesn't intersect
+    if (d >= 0 and i.area == 0):
         return
     
     # get previous position
-    m1_p0 = m1.verts - m1.lin_vel*dt
-    m2_p0 = m2.verts - m2.lin_vel*dt
+    m1_p0 = copy.deepcopy(m1.verts - m1.lin_vel*dt)
+    m2_p0 = copy.deepcopy(m2.verts - m2.lin_vel*dt)
     
-    m1_p1 = m1.verts
-    m2_p1 = m2.verts
+    m1_p1 = copy.deepcopy(m1.verts)
+    m2_p1 = copy.deepcopy(m2.verts)
     
-    m1_p0_old = m1.verts - m1.lin_vel
-    m2_p0_old = m2.verts - m2.lin_vel
-    m1_p1_old = m1.verts
-    m2_p1_old = m2.verts
+    # m1_p0_old = m1.verts - m1.lin_vel
+    # m2_p0_old = m2.verts - m2.lin_vel
+    # m1_p1_old = m1.verts
+    # m2_p1_old = m2.verts
     
-    while (d >= e or d < 0):
+    while (d >= e or i.area > 0):
         
-        # m1.verts = (m1_p1 - m1_p0)/2 + m1_p0
-        # m2.verts = (m2_p1 - m2_p0)/2 + m2_p0
+        # m1.verts = (m1_p1 + m1_p0)/2
+        # m2.verts = (m2_p1 + m2_p0)/2
         
         m1.displace(-(m1_p1 - m1_p0)/2)
-        m2.displace(-(m1_p1 - m1_p0)/2)
+        m2.displace(-(m2_p1 - m2_p0)/2)
+        
+        m1_pm = copy.deepcopy(m1.verts)
+        m2_pm = copy.deepcopy(m2.verts)
+        
+        print("m1: ", m1.name)
+        print("m2: ", m2.name)
+        
+        print("m1_p0: ", m1_p0)
+        print("m1_pm: ", m1_pm)
+        print("m1_p1: ", m1_p1)
+        
+        print("")
+        
+        print("m2_p0: ", m2_p0)
+        print("m2_pm: ", m2_pm)
+        print("m2_p1: ", m2_p1)
+        
+        print("")
         
         d = shapely.distance(shapely.Polygon(m1.verts),shapely.Polygon(m2.verts))
-        if d > e:
-            m1_p0 = m1.verts
-            m2_p0 = m2.verts
+        i = shapely.intersection(shapely.Polygon(m1.verts),shapely.Polygon(m2.verts))
+        area = i.area
+        
+        print("d: ", d)
+        print("area: ", area)
+        
+        print("\n")
+        
+        if np.abs(np.sum(m1_p0)) > 40:
+            return
+        
+        if np.abs(np.sum(m1_pm)) > 40:
+            return
+        
+        if np.abs(np.sum(m1_p1)) > 40:
+            return
+        
+        if np.abs(np.sum(m1_p0)) > 40:
+            return
+        
+        if np.abs(np.sum(m2_pm)) > 40:
+            return
+        
+        if np.abs(np.sum(m2_p1)) > 40:
+            return
+        
+        if d >= e:
+            m1_p0 = copy.deepcopy(m1.verts)
+            m2_p0 = copy.deepcopy(m2.verts)
         else:
-            m1_p1 = m1.verts
-            m2_p1 = m2.verts
+            m1_p1 = copy.deepcopy(m1.verts)
+            m2_p1 = copy.deepcopy(m2.verts)
     
     # the collision happens somewhere between t and t+1. We need to return this
     # number so we know how to apply the resulting forces properly in the integrator.
     # the ratio of the differences in magnitudes gives us this number.
-    return (np.linalg.norm(m1.verts)-np.linalg.norm(m1_p0_old))/(np.linalg.norm(m1_p1_old)-np.linalg.norm(m1_p0_old))
+    # return (np.linalg.norm(m1.verts)-np.linalg.norm(m1_p0_old))/(np.linalg.norm(m1_p1_old)-np.linalg.norm(m1_p0_old))
     
 def integrate(meshes: list[PhysicalMesh], forces: list[np.array]):
     
@@ -218,88 +278,63 @@ def integrate(meshes: list[PhysicalMesh], forces: list[np.array]):
         meshes[a].displace(meshes[a].lin_vel * dt)
         # meshes[a].angle += np.linalg.norm(meshes[a].ang_vel) * dt
     
-    for b in range(len(meshes)):
-        if (a != b and intersects(meshes[a], meshes[b])):
-            
-            print("intersects")
-            
-            adjust_collision(meshes[a],meshes[b],dt)
-            
-            # from conservation of momentum
-            # m_a * a_v1 + m_b * b_v1 =
-            # m_a * a_v2 + m_b * b_v2
-            # and
-            # b_v2 - a_v2 = -(b_v1 - a_v1)
-            # or 
-            # b_v2 = a_v2 - (b_v1 - a_v1)
-            # and
-            # a_v2 = b_v2 + (b_v1 - a_v1)
-            
-            
-            # m_a * a_v1 + m_b * b_v1 = m_a * (b_v2 + (b_v1 - a_v1)) + m_b * b_v2
-            
-            # m_a * a_v1 + m_b * b_v1 = m_a * b_v2 + m_a * (b_v1 - a_v1) + m_b * b_v2
-            
-            # m_a * a_v1 + m_b * b_v1 - m_a * (b_v1 - a_v1) = m_a * b_v2 + m_b * b_v2
-            
-            # m_a * a_v1 + m_b * b_v1 - m_a * (b_v1 - a_v1) = b_v2 * (m_a + m_b)
-            
-            # (m_a * a_v1 + m_b * b_v1 - m_a * (b_v1 - a_v1) ) / (m_a + m_b) = b_v2
-            
-            # (m_a * a_v1 + m_b * b_v1 - m_a * b_v1 + m_a * a_v1) / (m_a + m_b) = b_v2
-            
-            a_v1 = meshes[a].lin_vel
-            b_v1 = meshes[b].lin_vel
-            
-            v_b2_minus_v_a2 = -(b_v1 - a_v1)
-            
-            # rearranging
-            a_v2 = ( 2 * ( meshes[b].mass * b_v1 ) + a_v1 * ( meshes[a].mass - meshes[b].mass ) ) / (meshes[a].mass + meshes[b].mass)
-            # b_v2 = (meshes[a].mass * a_v1 + meshes[b].mass * b_v1 - meshes[a].mass * a_v2) / meshes[b].mass
-            b_v2 = a_v2 - (b_v1 - a_v1)
-            
-            print("a_v2: ", a_v2)
-            print("b_v2: ", b_v2)
-            
-            meshes[a].lin_vel = a_v2
-            meshes[b].lin_vel = b_v2
-            
-            # print(meshes[a].lin_vel)
-            # print(meshes[b].lin_vel)
-            # print()
-            
-            # print("a: ", meshes[a].verts)
-            # print("b: ", meshes[b].verts)
-            # print()
+        for b in range(len(meshes)):
+            if (a != b and intersects(meshes[a], meshes[b])):
                 
-
-'''
-f=FixedSpringCube('spring1',
-                  verts=np.array([[0., 0.],
-                                  [1., 0.],
-                                  [1., 1.],
-                                  [0., 1.]]),
-                  k = 2.5)
-
-f.apply_force(np.array([[0., 0.],
-                        [-0.5, 0.],
-                        [-0.5., 0.],
-                        [0., 0.]]))
-
-dt = 0.1
-
-print(f.verts)
-print(f.lin_vel)
-print()
-f.verts += f.lin_vel * dt
-
-for i in range(16):
-    f.apply_spring_force()
-    f.verts += f.lin_vel * dt
-    print(np.round(f.verts,2))
-    print()
-    pass
-
-'''
-
+                print("intersects")
+                
+                print("a: ", meshes[a].name)
+                print("b: ", meshes[b].name)
+                
+                # adjust_collision(meshes[a],meshes[b],dt)
+                meshes[a].displace(-meshes[a].lin_vel * dt)
+                meshes[b].displace(-meshes[b].lin_vel * dt)
+                
+                # meshes[a].displace(meshes[a].lin_vel * col)
+                # meshes[b].displace(meshes[b].lin_vel * col)
+                
+                # from conservation of momentum
+                # m_a * a_v1 + m_b * b_v1 =
+                # m_a * a_v2 + m_b * b_v2
+                # and
+                # b_v2 - a_v2 = -(b_v1 - a_v1)
+                # or 
+                # b_v2 = a_v2 - (b_v1 - a_v1)
+                # and
+                # a_v2 = b_v2 + (b_v1 - a_v1)
+                
+                # m_a * a_v1 + m_b * b_v1 = m_a * (b_v2 + (b_v1 - a_v1)) + m_b * b_v2
+                # m_a * a_v1 + m_b * b_v1 = m_a * b_v2 + m_a * (b_v1 - a_v1) + m_b * b_v2
+                # m_a * a_v1 + m_b * b_v1 - m_a * (b_v1 - a_v1) = m_a * b_v2 + m_b * b_v2
+                # m_a * a_v1 + m_b * b_v1 - m_a * (b_v1 - a_v1) = b_v2 * (m_a + m_b)
+                # (m_a * a_v1 + m_b * b_v1 - m_a * (b_v1 - a_v1) ) / (m_a + m_b) = b_v2
+                # (m_a * a_v1 + m_b * b_v1 - m_a * b_v1 + m_a * a_v1) / (m_a + m_b) = b_v2
+                
+                a_v1 = meshes[a].lin_vel
+                b_v1 = meshes[b].lin_vel
+                
+                print("a_v1: ", a_v1)
+                print("b_v1: ", b_v1)
+                
+                v_b2_minus_v_a2 = -(b_v1 - a_v1)
+                
+                # rearranging
+                a_v2 = ( 2 * ( meshes[b].mass * b_v1 ) + a_v1 * ( meshes[a].mass - meshes[b].mass ) ) / (meshes[a].mass + meshes[b].mass)
+                # b_v2 = (meshes[a].mass * a_v1 + meshes[b].mass * b_v1 - meshes[a].mass * a_v2) / meshes[b].mass
+                b_v2 = a_v2 - (b_v1 - a_v1)
+                
+                print("a_v2: ", a_v2)
+                print("b_v2: ", b_v2)
+                
+                meshes[a].set_velocity(a_v2)
+                meshes[b].set_velocity(b_v2)
+                
+                # print(meshes[a].lin_vel)
+                # print(meshes[b].lin_vel)
+                # print()
+                
+                # print("a: ", meshes[a].verts)
+                # print("b: ", meshes[b].verts)
+                # print()
+                
 

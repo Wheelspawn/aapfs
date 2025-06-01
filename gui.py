@@ -13,7 +13,7 @@ from integrate import *
 class Universe:
     """Handles loading and storing universe configuration from a JSON file."""
     def __init__(self):
-        self.setup = { "camera_position": [0, 0, 0], "timesteps": 200 }
+        self.setup = { "camera_position": [0, 0, 0], "timesteps": 1000 }
         self.objects = []
         self.forces = []
         self.solved_data = []
@@ -39,25 +39,78 @@ class Universe:
     
     def solve_system(self):
         
+        s1 = FixedSpringCube(name="spring1",
+                            verts=np.array([[-7.0,0.0],
+                                           [-10.0,0.0],
+                                           [-10.0,2.0],
+                                           [-7.0,2.0]]),
+                            mass=4.0,
+                            lin_vel=np.array([[0.0,0.0],
+                                                 [0.0,0.0],
+                                                 [0.0,0.0],
+                                                 [0.0,0.0]]),
+                            fixed=np.array([0,1,1,0]))
+        
+        c = Cube(name="cube2",
+                 verts=np.array([[-1.0,0.0],
+                                 [1.0,0.0],
+                                 [1.0,2.0],
+                                 [-1.0,2.0]]),
+                 mass=1.0,
+                 lin_vel=np.array([4.0,0.0]))
+        
+        s2 = FixedSpringCube(name="spring2",
+                verts=np.array([[7.0,0.0],
+                                [10.0,0.0],
+                                [10.0,2.0],
+                                [7.0,2.0]]),
+                mass=4.0,
+                lin_vel=np.array([[0.0,0.0],
+                                  [0.0,0.0],
+                                  [0.0,0.0],
+                                  [0.0,0.0]]),
+                fixed=np.array([0,1,1,0]))
+        
+        forces = []
+            
+        self.solved_data.append([s1,c,s2])
+        self.solved_forces.append([])
+        
+        for t in range(self.setup["timesteps"]):
+            # print("t: ", t)
+            integrate([s1,c,s2],forces)
+            s1 = copy.deepcopy(s1)
+            c = copy.deepcopy(c)
+            s2 = copy.deepcopy(s2)
+            
+            # print("t: ", t)
+            self.solved_data.append([s1,c,s2])
+            self.solved_forces.append(copy.deepcopy(forces))
+            
+            forces = []
+        
+        # print(self.solved_data)
+        self.solved = True
+        '''
         s = FixedSpringCube(name="spring1",
                             verts=np.array([[-2.0,0.0],
                                            [0.0,0.0],
                                            [0.0,2.0],
                                            [-2.0,2.0]]),
-                            mass=5.0,
+                            mass=4.0,
                             lin_vel=np.array([[0.0,0.0],
                                                  [0.0,0.0],
                                                  [0.0,0.0],
                                                  [0.0,0.0]]),
                             fixed=np.array([1,0,0,1]))
         
-        c = Cube(name="cube2",
-                 verts=np.array([[2.0,0.0],
-                                 [4.0,0.0],
-                                 [4.0,2.0],
-                                 [2.0,2.0]]),
-                 mass=5.0,
-                 lin_vel=np.array([-1.0,0.0]))
+        c = Cube(name="cube1",
+                 verts=np.array([[1.0,0.0],
+                                 [3.0,0.0],
+                                 [3.0,2.0],
+                                 [1.0,2.0]]),
+                 mass=2.0,
+                 lin_vel=np.array([-2.0,0.0]))
         
         forces = []
             
@@ -65,6 +118,7 @@ class Universe:
         self.solved_forces.append([])
         
         for t in range(self.setup["timesteps"]):
+            print("t: ", t)
             integrate([s,c],forces)
             s = copy.deepcopy(s)
             c = copy.deepcopy(c)
@@ -77,7 +131,50 @@ class Universe:
         
         # print(self.solved_data)
         self.solved = True
-    
+        c1 = Cube(name="cube1",
+                 verts=np.array([[-2.0,0.0],
+                                 [0.0,0.0],
+                                 [0.0,2.0],
+                                 [-2.0,2.0]]),
+                 mass=5.0,
+                 lin_vel=np.array([0.0,0.0]))
+        
+        c2 = Cube(name="cube2",
+                 verts=np.array([[-10.0,0.0],
+                                 [-8.0,0.0],
+                                 [-8.0,2.0],
+                                 [-10.0,2.0]]),
+                 mass=10.0,
+                 lin_vel=np.array([0.0,0.0]))
+        
+        c3 = Cube(name="cube3",
+                 verts=np.array([[2.0,0.0],
+                                 [4.0,0.0],
+                                 [4.0,2.0],
+                                 [2.0,2.0]]),
+                 mass=3.0,
+                 lin_vel=np.array([-3.0,0.0]))
+        
+        forces = []
+            
+        self.solved_data.append([c1,c2,c3])
+        self.solved_forces.append([])
+        
+        for t in range(self.setup["timesteps"]):
+            integrate([c1,c2,c3],forces)
+            c1 = copy.deepcopy(c1)
+            c2 = copy.deepcopy(c2)
+            c3 = copy.deepcopy(c3)
+            
+            # print("t: ", t)
+            self.solved_data.append([c1,c2,c3])
+            self.solved_forces.append(copy.deepcopy(forces))
+            
+            forces = []
+        
+        # print(self.solved_data)
+        self.solved = True
+    '''
 # --- Universe Scene (VisPy Viewport) ---
 class UniverseScene:
     """Encapsulates the VisPy scene elements including the 3D viewport, axes, grid, and objects."""
@@ -468,7 +565,7 @@ class AnalysisWindow(QtWidgets.QMainWindow):
 
             sc.axes.plot([d for d in range(data.shape[0])], [np.linalg.norm(d.lin_vel) for d in data[0:,i]])
             
-            main_layout.addWidget(sc)                          
+            main_layout.addWidget(sc)
             
         # print(solved_data)
 
