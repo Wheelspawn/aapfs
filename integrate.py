@@ -107,23 +107,18 @@ class FixedSpringCube(PhysicalMesh):
         self.k = k
     
     def apply_force(self, force: np.array):
-        for i in range(len(self.fixed)):
-            if self.fixed[i] != 1:
-                self.lin_vel[i] += (force / self.mass)[i]
+        self.lin_vel += (force / self.mass)
             
     def apply_spring_force(self):
         force = self.k * (self.orig_pos - self.verts)
-        self.lin_vel += (force / self.mass)
+        print(force)
+        self.lin_vel += (force / self.mass)[0]
     
     def apply_velocity(self, lin_vel: np.array):
-        for i in range(len(self.fixed)):
-            if self.fixed[i] != 1:
-                self.lin_vel[i] += lin_vel[i]
+        self.lin_vel += lin_vel
     
     def set_velocity(self, lin_vel: np.array):
-        for i in range(len(self.fixed)):
-            if self.fixed[i] != 1:
-                self.lin_vel[i] = lin_vel[i]      
+        self.lin_vel = lin_vel
                 
     def displace(self, distance):
         # print("verts: ", self.verts)
@@ -132,7 +127,7 @@ class FixedSpringCube(PhysicalMesh):
             if self.fixed[i] != 1:
                 # print(i)
                 # print("diff: ", self.verts[i] + distance[i])
-                self.verts[i] += distance[i]
+                self.verts[i] += distance
         # print()
             
     def center(self):
@@ -313,18 +308,13 @@ def integrate(meshes: list[PhysicalMesh], forces: list[np.array]):
                 a_v1 = meshes[a].lin_vel
                 b_v1 = meshes[b].lin_vel
                 
-                print("a_v1: ", a_v1)
-                print("b_v1: ", b_v1)
-                
                 v_b2_minus_v_a2 = -(b_v1 - a_v1)
                 
                 # rearranging
                 a_v2 = ( 2 * ( meshes[b].mass * b_v1 ) + a_v1 * ( meshes[a].mass - meshes[b].mass ) ) / (meshes[a].mass + meshes[b].mass)
+                
                 # b_v2 = (meshes[a].mass * a_v1 + meshes[b].mass * b_v1 - meshes[a].mass * a_v2) / meshes[b].mass
                 b_v2 = a_v2 - (b_v1 - a_v1)
-                
-                print("a_v2: ", a_v2)
-                print("b_v2: ", b_v2)
                 
                 meshes[a].set_velocity(a_v2)
                 meshes[b].set_velocity(b_v2)

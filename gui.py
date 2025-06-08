@@ -40,51 +40,56 @@ class Universe:
     def solve_system(self):
         
         s1 = FixedSpringCube(name="spring1",
-                            verts=np.array([[-7.0,0.0],
-                                           [-10.0,0.0],
-                                           [-10.0,2.0],
-                                           [-7.0,2.0]]),
-                            mass=4.0,
-                            lin_vel=np.array([[0.0,0.0],
-                                                 [0.0,0.0],
-                                                 [0.0,0.0],
-                                                 [0.0,0.0]]),
+                            verts=np.array([[-8.0,0.0],
+                                            [-10.0,0.0],
+                                            [-10.0,2.0],
+                                            [-8.0,2.0]]),
+                            mass=2.0,
+                            k=1,
+                            lin_vel=np.array([0.0,0.0]),
                             fixed=np.array([0,1,1,0]))
+
+        c1 = Cube(name="cube1",
+                 verts=np.array([[-6.0,0.0],
+                                 [-4.0,0.0],
+                                 [-4.0,2.0],
+                                 [-6.0,2.0]]),
+                 mass=0.25,
+                 lin_vel=np.array([0.0,0.0]))
         
-        c = Cube(name="cube2",
+        c2 = Cube(name="cube2",
                  verts=np.array([[-1.0,0.0],
                                  [1.0,0.0],
                                  [1.0,2.0],
                                  [-1.0,2.0]]),
-                 mass=1.0,
+                 mass=0.5,
                  lin_vel=np.array([4.0,0.0]))
         
         s2 = FixedSpringCube(name="spring2",
-                verts=np.array([[7.0,0.0],
+                verts=np.array([[8.0,0.0],
                                 [10.0,0.0],
                                 [10.0,2.0],
-                                [7.0,2.0]]),
-                mass=4.0,
-                lin_vel=np.array([[0.0,0.0],
-                                  [0.0,0.0],
-                                  [0.0,0.0],
-                                  [0.0,0.0]]),
+                                [8.0,2.0]]),
+                mass=2.0,
+                k=1,
+                lin_vel=np.array([0.0,0.0]),
                 fixed=np.array([0,1,1,0]))
         
         forces = []
             
-        self.solved_data.append([s1,c,s2])
+        self.solved_data.append([s1,c1,c2,s2])
         self.solved_forces.append([])
         
         for t in range(self.setup["timesteps"]):
             # print("t: ", t)
-            integrate([s1,c,s2],forces)
+            integrate([s1,c1,c2,s2],forces)
             s1 = copy.deepcopy(s1)
-            c = copy.deepcopy(c)
+            c1 = copy.deepcopy(c1)
+            c2 = copy.deepcopy(c2)
             s2 = copy.deepcopy(s2)
             
             # print("t: ", t)
-            self.solved_data.append([s1,c,s2])
+            self.solved_data.append([s1,c1,c2,s2])
             self.solved_forces.append(copy.deepcopy(forces))
             
             forces = []
