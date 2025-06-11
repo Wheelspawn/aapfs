@@ -111,7 +111,7 @@ class FixedSpringCube(PhysicalMesh):
             
     def apply_spring_force(self):
         force = self.k * (self.orig_pos - self.verts)
-        print(force)
+        # print(force)
         self.lin_vel += (force / self.mass)[0]
     
     def apply_velocity(self, lin_vel: np.array):
@@ -262,9 +262,9 @@ def adjust_collision(m1: PhysicalMesh, m2: PhysicalMesh, dt, e=0.001):
     # the ratio of the differences in magnitudes gives us this number.
     # return (np.linalg.norm(m1.verts)-np.linalg.norm(m1_p0_old))/(np.linalg.norm(m1_p1_old)-np.linalg.norm(m1_p0_old))
     
-def integrate(meshes: list[PhysicalMesh], forces: list[np.array]):
+def integrate(meshes: list[PhysicalMesh]):
     
-    dt = 0.05
+    dt = 0.04
     
     for a in range(len(meshes)):
         a_pos_old = copy.deepcopy(meshes[a].verts)
@@ -276,10 +276,10 @@ def integrate(meshes: list[PhysicalMesh], forces: list[np.array]):
         for b in range(len(meshes)):
             if (a != b and intersects(meshes[a], meshes[b])):
                 
-                print("intersects")
+                # print("intersects")
                 
-                print("a: ", meshes[a].name)
-                print("b: ", meshes[b].name)
+                # print("a: ", meshes[a].name)
+                # print("b: ", meshes[b].name)
                 
                 # adjust_collision(meshes[a],meshes[b],dt)
                 meshes[a].displace(-meshes[a].lin_vel * dt)

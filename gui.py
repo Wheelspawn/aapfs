@@ -6,14 +6,19 @@ from vispy import scene
 import typing
 import copy
 from vispy.io import load_data_file, read_png
+from vispy.scene import STTransform
 
 from integrate import *
+
+import vispy
+
+img_data = read_png('spring3.png')
 
 # --- Universe Data Model ---
 class Universe:
     """Handles loading and storing universe configuration from a JSON file."""
     def __init__(self):
-        self.setup = { "camera_position": [0, 0, 0], "timesteps": 1000 }
+        self.setup = { "camera_position": [0, 0, 0], "timesteps": 100 }
         self.objects = []
         self.forces = []
         self.solved_data = []
@@ -50,50 +55,67 @@ class Universe:
                             fixed=np.array([0,1,1,0]))
 
         c1 = Cube(name="cube1",
-                 verts=np.array([[-6.0,0.0],
-                                 [-4.0,0.0],
-                                 [-4.0,2.0],
-                                 [-6.0,2.0]]),
-                 mass=0.25,
+                 verts=np.array([[-4.0,0.0],
+                                 [-2.0,0.0],
+                                 [-2.0,2.0],
+                                 [-4.0,2.0]]),
+                 mass=1.25,
                  lin_vel=np.array([0.0,0.0]))
         
         c2 = Cube(name="cube2",
-                 verts=np.array([[-1.0,0.0],
-                                 [1.0,0.0],
-                                 [1.0,2.0],
-                                 [-1.0,2.0]]),
+                 verts=np.array([[1.0,0.0],
+                                 [3.0,0.0],
+                                 [3.0,2.0],
+                                 [1.0,2.0]]),
                  mass=0.5,
-                 lin_vel=np.array([4.0,0.0]))
+                 lin_vel=np.array([-6.0,0.0]))
         
+        '''
         s2 = FixedSpringCube(name="spring2",
                 verts=np.array([[8.0,0.0],
                                 [10.0,0.0],
                                 [10.0,2.0],
                                 [8.0,2.0]]),
-                mass=2.0,
+                mass=3.0,
                 k=1,
                 lin_vel=np.array([0.0,0.0]),
-                fixed=np.array([0,1,1,0]))
+                fixed=np.array([0,1,1,0])) '''
         
-        forces = []
-            
-        self.solved_data.append([s1,c1,c2,s2])
-        self.solved_forces.append([])
+        
+        b1 = Cube(name="bumper1",
+                 verts=np.array([[-10.01,0.0],
+                                 [-10.51,0.0],
+                                 [-10.51,2.0],
+                                 [-10.01,2.0]]),
+                 mass=1000,
+                 lin_vel=np.array([0.0,0.0]))
+        
+        '''
+        b2 = Cube(name="bumper2",
+                 verts=np.array([[10.01,0.0],
+                                 [10.51,0.0],
+                                 [10.51,2.0],
+                                 [10.01,2.0]]),
+                 mass=1,
+                 lin_vel=np.array([0.0,0.0])) '''
+        
+        self.solved_data.append([s1,c1,c2,b1])
+        
+        for d in self.solved_data:
+            for e in d:
+                print(type(e))
         
         for t in range(self.setup["timesteps"]):
             # print("t: ", t)
-            integrate([s1,c1,c2,s2],forces)
+            integrate([s1,c1,c2,b1])
             s1 = copy.deepcopy(s1)
             c1 = copy.deepcopy(c1)
             c2 = copy.deepcopy(c2)
-            s2 = copy.deepcopy(s2)
+            b1 = copy.deepcopy(b1)
             
             # print("t: ", t)
-            self.solved_data.append([s1,c1,c2,s2])
-            self.solved_forces.append(copy.deepcopy(forces))
+            self.solved_data.append([s1,c1,c2,b1])
             
-            forces = []
-        
         # print(self.solved_data)
         self.solved = True
         '''
@@ -201,6 +223,7 @@ class UniverseScene:
         # self.circles = scene.visuals.Ellipse(parent=self.view.scene)
         
         self.solved_meshes = []
+        self.images = []
         self.solved_text = []
         
         '''
@@ -274,33 +297,55 @@ class UniverseScene:
     def update_objects_to_timestep(self, universe, current_timestep):
         """Updates the markers in the scene based on a list of objects."""
         
+        # image2 = scene.visuals.Image(parent=self.view.scene,data=img_data)
+        # image2.transform = STTransform(scale = (0.02,0.02,0.02), translate=(0,0,0))
+        
         if self.solved_meshes == []:
         
             for mesh in universe.solved_data[0]:
                 
+                # image = scene.visuals.Image(parent=self.view.scene,data=img_data)
+                # image.transform = STTransform(scale = (0.02,0.02,0.02), translate=(mesh.center()[0]-mesh.height()/2, mesh.center()[1]-mesh.width()/2, 0.5))
+                
                 self.solved_meshes.append(scene.visuals.Rectangle(parent=self.view.scene,
-                                                                  color="blue",
-                                                                  border_color="black",
-                                                                  border_width=4.0,
+                                                                  color="brown",
+                                                                  border_width=3.0,
                                                                   center=mesh.center(),
                                                                   height=mesh.height(),
                                                                   width=mesh.width()))
                 
+                if type(mesh) == FixedSpringCube:
+                    image = scene.visuals.Image(parent=self.view.scene,data=img_data)
+                    image.transform = STTransform(scale = (mesh.height()/image.size[1],mesh.width()/image.size[0],1),
+                                                  translate=(mesh.center()[0]-(mesh.height()/2),mesh.center()[1]-(mesh.width()/2),0.02))
+                    self.images.append(image)
+                else:
+                    self.images.append(None)
+                
         else:
             for m in range(len(universe.solved_data[current_timestep])):
-                self.solved_meshes[m].pos = universe.solved_data[current_timestep][m].verts
-                # self.solved_text[m].pos = universe.solved_data[current_timestep][m].pos
-                # self.solved_text[m].rotation = universe.solved_data[current_timestep][m].angle*(180/np.pi)
                 
-                '''
-                scene.visuals.Ellipse(parent=self.view.scene,
-                                      color="white",
-                                      border_color="black",
-                                      border_width=3.0,
-                                      center=self.solved_meshes[m].center(),
-                                      radius=0.01) '''
-    
-    
+                mesh = self.solved_meshes[m]
+
+                self.solved_meshes[m].pos = universe.solved_data[current_timestep][m].verts
+            
+                if type(universe.solved_data[current_timestep][m]) == FixedSpringCube:
+                    # self.images[m].pos = self.solved_meshes[m].pos
+                    self.solved_meshes[m].pos
+                    
+                    height = max(self.solved_meshes[m].pos[:,1]) - min(self.solved_meshes[m].pos[:,1])
+                    width = max(self.solved_meshes[m].pos[:,0]) - min(self.solved_meshes[m].pos[:,0])
+                    
+                    x = min(self.solved_meshes[m].pos[:,0])
+                    y = min(self.solved_meshes[m].pos[:,1])
+                    
+                    self.images[m].transform = STTransform(scale = (width/self.images[m].size[1],height/self.images[m].size[0],1),
+                                                           translate=(x,y,0.02))
+                    
+                    
+            print()
+                    
+                    
     def toggle_axes(self):
         """Toggles the visibility of the axes."""
         self.axes.visible = not self.axes.visible
@@ -536,6 +581,8 @@ import sys
 import matplotlib
 matplotlib.use('Qt5Agg')
 
+matplotlib.rcParams.update({'font.size': 16})
+
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure        
         
@@ -563,15 +610,27 @@ class AnalysisWindow(QtWidgets.QMainWindow):
         data = np.array(solved_data)
         for i in range(data.shape[1]):
             
-            sc = MplCanvas(self, width=5, height=4, dpi=100)
+            vert_layout = QtWidgets.QVBoxLayout()
+            
+            sc1 = MplCanvas(self, width=5, height=4, dpi=100)
             # speed over time
-            sc.axes.set_ylabel('Speed in m/s')
-            sc.axes.set_title(data[0:,i][0].name)
+            sc1.axes.set_ylabel('Speed in m/s')
+            sc1.axes.set_title(data[0:,i][0].name)
 
-            sc.axes.plot([d for d in range(data.shape[0])], [np.linalg.norm(d.lin_vel) for d in data[0:,i]])
+            sc1.axes.plot([d for d in range(data.shape[0])], [np.linalg.norm(d.lin_vel) for d in data[0:,i]])
+                        
+            sc2 = MplCanvas(self, width=5, height=4, dpi=100)
+            # change in speed over time
+            sc2.axes.set_ylabel('Change in speed in m/s^2')
+            sc2.axes.set_title(data[0:,i][0].name)
+
+            sc2.axes.plot([d for d in range(data.shape[0])], np.gradient([np.linalg.norm(d.lin_vel) for d in data[0:,i]]))
             
-            main_layout.addWidget(sc)
+            vert_layout.addWidget(sc1)
+            vert_layout.addWidget(sc2)
             
+            main_layout.addLayout(vert_layout)
+             
         # print(solved_data)
 
 def main():
