@@ -1,5 +1,6 @@
 cython
 matplotlib
+multimethod
 numpy
 PyQt5
 pandas
